@@ -1,6 +1,7 @@
 # Copyright (C) 2015 Sebastian Pipping <sebastian@pipping.org>
 # Licensed under GPL v2 or later
 
+import platform
 import subprocess
 import sys
 from contextlib import suppress
@@ -59,11 +60,22 @@ class Engine:
         try:
             output = run(self._gcc_command, ['-march=native'], self._debug)
         except subprocess.CalledProcessError:
-            output = run(self._gcc_command, ['-mcpu=native'], self._debug)
+            if platform.machine() == 'riscv64':
+                with open("/sys/firmware/devicetree/base/cpus/cpu@0/riscv,isa", "r") as dbt:
+                    isa = dbt.readline().rstrip('\x00')
+                    if 'rv64' in isa:
+                        isa = isa.replace('rv64i', 'rv64id')
+                output = run(self._gcc_command, [f'-march={isa}'], self._debug)
+            else:
+                output = run(self._gcc_command, ['-mcpu=native'], self._debug)
         march_native_flag_set = set(extract_flags(output))
         if self._debug:
             announce_flags(march_native_flag_set)
-        march_native_flag_set |= set(get_flags_implied_by_march('native', gcc=self._gcc_command,
+        if platform.machine() == 'riscv64':
+            march_native_flag_set |= set(get_flags_implied_by_march(f'{isa}', gcc=self._gcc_command,
+                                                                debug=self._debug))
+        else:
+            march_native_flag_set |= set(get_flags_implied_by_march('native', gcc=self._gcc_command,
                                                                 debug=self._debug))
         if self._debug:
             announce_flags(march_native_flag_set)
@@ -140,6 +152,5 @@ class Engine:
         arch = self._extract_arch_from_flags(march_native_flag_set)
         march_explicit_flag_set = self._get_march_explicit_flag_set(
             arch)
-
         return self._resolve(march_native_flag_set, march_explicit_flag_set, arch, options,
                              march_wanted)

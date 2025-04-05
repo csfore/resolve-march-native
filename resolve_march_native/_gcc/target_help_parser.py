@@ -81,6 +81,12 @@ _alias_line_pattern = re.compile(r'^\s+-\S+\s+(?P<flag>-[^ ]+)$')
 # "  -iframework <dir>           \t\t"
 _ignore_line_pattern = re.compile(r'^\s+-iframework <dir>\s+$')
 
+# RISV-V Flags
+
+# Example lines:
+# "  --param=riscv-strcmp-inline-limit= \t64"
+_param_riscv_strcmp_inline_limit_pattern = re.compile(r'^\s+(?P<flag>-[^ ]+=)\s*(?P<value>.*)$')
+
 
 def get_flags_implied_by_march(arch: str, gcc=None, debug=True) -> List[str]:
     if gcc is None:
@@ -204,6 +210,12 @@ def _parse_gcc_output(gcc_output: str) -> List[str]:
         concat_var_line_match = _concat_var_line_pattern.match(line)
         if concat_var_line_match is not None:
             flag = concat_var_line_match.group("flag") + concat_var_line_match.group("value")
+            flags.append(flag)
+            continue
+
+        param_riscv_strcmp_inline_limit_match = _param_riscv_strcmp_inline_limit_pattern.match(line)
+        if param_riscv_strcmp_inline_limit_match is not None:
+            flag = param_riscv_strcmp_inline_limit_match.group("flag") + param_riscv_strcmp_inline_limit_match.group("value")
             flags.append(flag)
             continue
 
